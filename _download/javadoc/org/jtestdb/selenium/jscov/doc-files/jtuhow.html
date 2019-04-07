@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<!-- Copyright (c) 2019 dbradley.
+-->
+<html>
+  <head>
+    <title>How JscovTestUtil works</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="text/javascript" src="./jtuhow.js" ></script>
+    <link rel="stylesheet" type="text/css" href="./jtuhow.css" />
+  </head>
+  <body onload="onloadImg(); buildTOC();">
+    <div class="tabdiv">
+      <div class="rowdiv">
+        <div class="celldivleft">
+          <div  id="tocele" class="divscrollleft">
+            <!--gets filled in-->
+          </div>
+        </div>
+        <div class="celldivright">
+          <div class="divscrollright">
+            <h3>Web-page Javascript code-coverage</h3>     
+            <p>Getting code-coverage of browser-Javascript files requires 
+              interaction with an external tool that does JS-code instrumentation. 
+              The most common approach requires that Javascript files be 
+              instrumented manually, then upload onto the web-server for
+              the web-page-under-test (WUT).              
+              This latter install is a manual step and may be considered 
+              intrusive. There are other approaches and various tools 
+              for Javascript instrumentation.</p>
+
+            <h3>About JscovTestUtil</h3>
+            <p>JscovTestUtil came about due to the author&rsquo;s requirement
+              to test a MCU (micro-computer-unit) that supported WiFi and 
+              enough storage to run a small web-server (an ESP8266 device).
+
+              Manual instrumenting and upload, to the MCU, approach would be 
+              time consuming and subject to coordination error, while placing
+              wear-&amp;-tear on the MCU development board.
+            </p>
+            <p>
+              JSCover was found to meet the requirements needed for
+              automatic instrumentation and no re-upload to the device.
+              So the design and development of JscovTestUtil was instigated.
+            </p>
+            <p class='ind'>
+              Using JSCover's proxy-server of on-the-fly 
+              instrumentation (which works great), and interacting with Selenium 
+              and TestNG, the goal of a seamless flow-through for getting 
+              code-coverage of JS-files on a MCU device/web-server works.</p>
+
+            <h4>Capabilities/features</h4>
+            <div class='caplist'>
+              <ul>
+                <li>Uses JSCover features to achieve code-coverage.
+                  <p class='ind margtop0'>Used in a like manner as a user, by 
+                    executing the tool using Java's <code>ProcessBuilder</code> class.
+                </li>
+                <li>Allows JSCover and/or WebDrivers to be accessed:
+                  <ul>
+                    <li>as "part" of an IDE  project's structure (and any 
+                      source-code-management system), or</li>
+                    <li>through an external directory</li>
+                  </ul>
+                </li>    
+                <li>Allow JscovTestUtil code to remain in place at all times, by
+                  using an ON/OFF-code-coverage state to be controlled in 
+                  test script.
+                <li>Launch viewing reports at the end of the test run. With an ON or 
+                  OFF control as appropriate for user's need.
+                </li>
+
+                <li>Create WebDriver objects (used with Selenium API actions). There
+                  are two forms:
+                  <ol class='margtop0'>
+                    <li>as a WebDriver for code-coverage
+                      (<code>webDriverForJSCCoverProxy(..)</code>) [the
+                      WebDriver is configured to use JSCover's as a proxy]</li>
+                    <li>as a WebDriver without code-coverage
+                      (<code>webDriverForBrowser(..)</code>,   or 
+                      <code>webDriverForTypeSameAs(..)</code>)</li>
+                  </ol>
+                </li>
+                <li>'start', 'store-report' and 'stop' the code-coverage the
+                  test script to JSCover interaction, with the ability to be ON or OFF.
+                </li>
+                <li>
+                  Placing reports into 'reports' sub-directory of the JSCover directory 
+                  structure.
+                  <ul>
+                    <li>Provide the ability to store reports into time-stamped
+                      sub-directory (repYYYYMMDD_hhmmss_nnn) of 'reports'.
+                      <ul>
+                        <li>Retain N time-stamped sub-directories, where the oldest
+                          time-stamped directories are removed from the file-system 
+                          [storage management].</li>
+                        <li>Keep all time-stamped sub-directories.</li>
+                      </ul></li>
+                  </ul>
+                </li>
+                <li>Allow reports to be stored in an explicit sub-directory of
+                  'reports'. This allows the sub-directory to be named as per
+                  a machine name, user name, or run version. Depending on how the
+                  user configures the use of JscovTestUtil.
+                </li>
+              </ul>
+            </div>
+            <h4>JSCover Javascript handling</h4>
+            <p>JscovTestUtil employs JSCover's proxy-server capability to do
+              on-the-fly instrumentation of JS-files.
+            <p class='ind'>  
+              For all intent-&amp;-purposes, users of JscovTestUtil will find it 
+              removes  'manual instrumentation' for the user and subsequent upload 
+              to web-servers. The removal of any upload reduces the risk of leaving 
+              instrumented JS-files on the web-server by accident.
+            </p>
+            <p class='ind margbot3'>The proxy-server approach (simplified) allows processing
+              in the following manner:
+            <ul class='ind margtop0'>
+              <li><i>browser/user</i>: Browser requests web-page.</li>
+              <li><i>proxy-server</i>: Pass through requests to web-server un-filtered.</li>
+              <li><i>web-server</i>: Respond(s) with file(s) for GET request.</li>
+              <li><i>proxy-server</i>: Intercept returned GET responses:
+                <ul>
+                  <li>Pass-through all none Javascript files.</li>
+                  <li>Instrument Javascript files as per JSCover processing
+                    and then upload to browser.</li>
+                  <li>Store original Javascript files for JSCover's reporting system.</li>
+                </ul></li>
+            </ul>
+            <h4>JscovTestUtil approach</h4>
+            <p>
+              For JscovTestUtil to work setup/configuration of Selenium V3 and JSCover is
+              needed. </p>
+            <p style="padding-left: 20px;">
+              How-to setup/configure is outside this documents scope, and it is assumed
+              users will follow-up with Selenium and/or JSCover documentation.</p>
+              <p style="padding-left: 20px;">IDEA: consider using 
+              WebDriverManager for Selenium setup/install/configuration management.</p>
+            <p>
+              The following diagram and its ordered steps is a brief on how 
+              JscovTestUtil interacts with hi-level "components" to do Javascript 
+              code-coverage in a test Selenium (Java) and @Test framework environment.
+            </p>
+            <p style="margin-left: 20px; padding-left: 5ch; text-indent: -5ch;">
+              Note: JscovTestUnit causes JSCover to generate report-files, 
+              however, creation of files is <b>NOT concurrent friendly</b> for
+              parallel processing of @Test testcase-scripts.
+              <br><br>
+              JscovTestUnit is a part of the Test environment as a Selenium 
+              add-in. It is a library that provides JSCover control interaction
+              methods to simplify/integrate run-time configuration.
+            </p>
+            <div>      
+              <button class="butrad" onclick="imgScale(this, 'howrks');" onfocus="buttFocus(this);">50%</button>
+              <button class="butrad" onclick="imgScale(this, 'howrks');" onfocus="buttFocus(this);">75%</button>
+              <button class="butrad" onclick="imgScale(this, 'howrks');" onfocus="buttFocus(this);">100%</button>
+              <script>imageRegister('howrks', "50%");</script>
+            </div>
+            <div id="howrks">
+              <img src="./interact.png"  style="width:100%; height:100%;" alt="missing image">
+            </div>
+
+            <ol>
+              <li><i>Test setup</i>:
+                <ul><li>Start the proxy-server via ProcessBuilder using the JSCover
+                    executable directory.</li></ul>
+              </li>
+              <li><i>Testing</i>:
+                <ul><li>Begin executing tests, perform GET-URL action.
+                    <ul><li>
+                        <i>Proxy-server</i>: passes <b>GET</b> requests directly to web-server.
+                      </li></ul>
+                  </li></ul>
+              </li>
+              <li><i>Web-server</i>:
+                <ul><li>Respond to <b>GET</b> requests and sends files back to requestor (for
+                    files: HTML, CSS, JS,...).</li></ul>
+                <ol type="a">
+                  <li><i>Proxy-server</i>: Javascript file(s) are intercepted by JSCover
+                    proxy-server and instrumented, if not excluded from instrumentation.</li>
+                  <li><i>Proxy-server</i>: Instrumented files are forwarded to browser.</li>
+                  <li><i>Proxy-server</i>: Excluded from instrumentation files are passed-through to
+                    the browser.</li>
+                  <li><i>Proxy-server</i>: Records the original Javascript and retains them in
+                    the JSCover reports directory.</li>
+                </ol>
+              </li>
+              <li><i><b>Testing</b></i>:
+                <ul><li>
+                    <b>Performs normal test actions via the WebDriver API.</b>
+                  </li></ul></li>
+              <li><i>Testing/capture report</i>:
+                <ul><li>invoke a store-report at end of each test, or during testing, or
+                    whenever.</li></ul>
+                <ol type="a">
+                  <li><i>Instrumented Javascript</i>: Invoke the jscoverage_report(...)
+                    function in the instrumented Javascript. This will cause the script to
+                    forward captured results to the proxy-server directly.</li>
+                  <li><i>Proxy-server</i>: Receives jscoverage JSON and other datum which will
+                    be formatted and converted into JSCover report format files.
+                  </li>
+                  <li><i>Proxy-server</i>: Report-files are stored in the JSCover reports
+                    directory. JSCover will also merge the data if existing datum files
+                    present.</li>
+                </ol>
+              </li>
+              <li><i>Testing/stop</i>:
+                <ul><li>On testing stop a request to terminate and stop the proxy-server is
+                    "called". This will cause a store-report first before stopping the JSCover
+                    proxy-server process on the system.
+                  </li></ul></li>
+            </ol>
+            <p>
+              JscovTestUtil has been designed to be integral with IDE's and/or 
+              using external locations for resources, the resources being Selenium V3
+              WebDriver executables and the JSCover program. 
+            </p>
+            <p>Selenium setup is 
+              involved, in that WebDriver executables are OS-platform <b>and</b> browser type
+              dependent, JSCover setup has no dependencies as such. 
+            <p class='ind' style="padding-left:  6ch; text-indent: -5.5ch;">
+              Notes: An assumption is made that users are familiar with Selenium 
+              V3's WebDriver setup/configuration.</p>
+            <p class='ind' style="padding-left:  6ch;" >Also, the user is capable of 
+              configuring JSCover as per its setup/configuration arrangements.
+            <h5 id='considerations'>Considerations</h5>
+            The user needs to arrange and code the setup/install of JSCover and Selenium
+            WebDrivers for their test environment. JscovTestUtil allows users to
+            access JSCover from directories. However it is prudent to
+            point out that having these directories accessed over the network will
+            restrict the test environment in needing network access.
+            <p class='ind'>
+              It is recommended that JSCover and Selenium WebDrivers be installed
+              on a machines local-file-system, thus supporting distributed development and
+              no reliance on a network connection.
+            </p>
+            <h6>IDE integration</h6>
+            An IDE has projects, which provide ease-of-use and collaboration, and when 
+            managed via a SCM (source code management) systems 
+            like Git, Mercurial,.. have even better share-ability. 
+            In addition, all users have 
+            access to the same resources within an integral project [great].
+            <h6>IDE JscovTestUtil</h6>
+            <p>
+              The integral support of JscovTestUtil is focused on IDE use, where 
+              all the resources are contained within an IDE's project structure. This
+              is done by making JSCover part of the test-environment.</p>
+            <table class="tabstruct">
+              <caption style="display: none;">null caption</caption>
+              <tr>
+                <td>
+                  <h6>JSCover IDE integration</h6>
+                  <p>
+                    "installing" JSCover within the IDE's "user.dir" structure
+                    at '&lt;user.dir&gt;/jscoverInst' directory.</p>
+                  <p><b>Notes</b></p>
+                  <ul>
+                    <li>The <i>reports</i> directory is introduced by 
+                      JscovTestUtil as a single location in the JSCover 
+                      directory to be the "goto" directory for viewing.
+                    <li>Additionally, strongly consider making '<i>reports</i>'
+                      ignored in an '.ignore' file if source controlled.
+                    <li>Consider removing some directories from JSCover  (such as "examples")
+                      to reduce the amount of storage used.
+                  </ul> 
+                </td>
+                <td>
+                  <h6>Selenium Web-driver install</h6>
+                  <P>
+                    Selenium V3 WebDrivers are independently provided 
+                    files for each browser type. There is a specific manner in which 
+                    they are setup/install to interface with Selenium Java.
+                  <p>
+                    The user should refer to Selenium V3 documentation on how this is done.
+                  <p>
+                    Also, consider using <code><b>WebDriverManager</b></code> class for automatic 
+                    management for WebDriver's in your test environment. (WebDriverManager
+                    is an Apache 2.0 licensed artifact.)
+
+
+                </td>
+              </tr>
+              <tr>
+                <td colspan="2"> 
+                  <div>
+                    <table class="tabusrdir">
+                      <tr>
+                        <td> 
+                          <div>
+                            <pre>/&lt;user.dir&gt;
++- /jscoverInst
+   +- /....
+   +- /....
+   +- /<i>reports</i>
+   :   :
+   +--- ....
+   +--- ....
+   +--- ....
+                            </pre>
+                          </div>
+                        </td>
+                        <td>
+                          <div>
+                            <button class="butrad" onclick="imgScale(this, 'cfgide');" onfocus="buttFocus(this);">75%</button>
+                            <button class="butrad" onclick="imgScale(this, 'cfgide');" onfocus="buttFocus(this);">100%</button>
+                            <script>imageRegister('cfgide', "75%");</script>
+                          </div>
+                          <div>
+                            <img id="cfgide" src='./configIDEonly.png' 
+                                 alt='missing image' align="center">
+                          </div>
+                          <br>
+
+                        </td>
+                        <td> 
+
+                        </td>        
+                      </tr>
+                    </table>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Structure allows cross-platform of project distribution
+                  so shopping around is unnecessary.
+                  <div class='list'>
+                    <p>CON: Large amount of storage on SCM system
+                  </div>
+                  <div class='list'>
+                    <p>PRO: all users have the same JSCover programs
+                    <p>PRO: single person program update into a repository
+                    <p>PRO: SCM pull provides the driver distribution, vs individual
+                      download
+                    <p>PRO: supports distributed SCM development when network is not
+                      available
+                    <p>PRO: structure can be reduced in size by removing 'items' e.g.
+                      Examples
+                  </div>
+                </td>
+                <td>
+
+                </td>
+              </tr>
+            </table>
+            <br>
+            <h3>External JSCover and/or WebDriver resources</h3>
+            <p class="margbot3">
+              Using the external resources capability of JscovTestUtil allows
+              users to choose how-to and where-from resources are accessed. The following
+              diagram outlines access arrangements. It is the 
+              users decision to use the external resources arrangement:</p>
+            <ul>
+              <li>JSCover can be identified as an external directory for
+                processing the JSCover needs of JscovTestUtil.</li>
+            </ul>
+
+            <div>
+              <div>
+                <button class="butrad" onclick="imgScale(this, 'cfgext')" onfocus="buttFocus(this);">75%</button>
+                <button class="butrad" onclick="imgScale(this, 'cfgext')" onfocus="buttFocus(this);">100%</button>
+                <script>imageRegister('cfgext', "75%");</script>
+              </div>
+              <img id="cfgext" src='./configExternal.png' alt='missing image'>
+            </div>
+
+            <h3 class='margtop0'>Test scripts</h3>
+            <div class='methods'>
+              <p>With Selenium and JSCover setup in the test environment, either as identified
+                to a JscovTestUtil object, or with a user's setup, test-cases are written
+                against the JscovTestUtil object.
+              </p>
+              <p>
+                The <code>setOn...</code> or <code>setOff...</code> should be called
+                before action methods.
+              </p>
+              <h4>Options for JSCover</h4>
+              <p>
+                JSCover has a number of options that may be added to influence the
+                operation of the proxy-server. The key options are those that
+                influence which JS-files are instrumented, or not (see below and/or
+                the JSCover manual).
+              </p>
+              <table>
+                <caption style='display: none;'>no name</caption>
+
+                <tr>
+                  <td>
+                    <ul>
+                      <li><code>optionAddGeneric(...)</code></li>
+                    </ul>
+                
+                    <ul>
+                      <li><code>optionNoInstrument(...)</code></li>
+                      <li><code>optionNoInstrumentReg(...)</code></li>
+                      <li><code>optionOnlyInstrumentReg(...)</code></li>
+                    </ul>
+                  
+                    <ul>
+                      <li><code>optionClearAnyAdded()</code></li>
+                    </ul>
+                  </td>
+
+                  <td>
+                    <ul>
+                      <li><code><i>startProxyServer()</i></code>
+                        <br><br>start requires options set before calling</li>
+                    </ul>
+                  </td>
+
+                </tr>
+              </table>
+              <h5>Include/exclude JS-files from instrumentation</h5>
+              <p>
+                JSCover has proxy-server options that are "include/exclude 
+                settings" for JS-files that are to be instrumented, while others
+                are excluded.
+              <table class='opttabexin'>
+                <tr>
+                  <th>JscovTestUtil</th>
+                  <th>JSCover opt</th>
+                  <th>what</th>
+                </tr>
+                <tr>
+                  <td><code>optionNoInstrument(...)</code></td>
+                  <td>--no-instrument=URL</td>
+                  <td>exclude URL, all other included</td>
+                </tr>
+                <tr>
+                   <td><code>optionNoInstrumentReg(...)</code></td>
+                  <td>--no-instrument-reg=URL </td>
+                  <td>exclude regex-URL, all other included</td>
+                </tr>
+                <tr>
+                  <td><code>optionOnlyInstrumentReg(...)</code> </td>
+                  <td>--only-instrument-reg=URL</td>
+                  <td>include regex-URL, all other excluded</td>
+                </tr>
+              </table>
+              <p>
+                'Reg/-reg' is a regular expression and should be used when dealing with
+                multiple file patterns to include or exclude from instrumenting.
+              </p>
+
+              <div class='ind'>
+                <h4 id='regexexample'>regex pattern examples</h4>
+                <p style="margin-bottom: 0px;">
+                  Javascript files are HTTP GET requested due to the &lt;script src... &gt;
+                  tag:</p>
+                <div class='indtpp'>
+                  <pre style="margin-top: 5px;">
+      &lt;script type="text/javascript" src="./subdir/file1.js"&gt;&lt;/script&gt;
+      &lt;script type="text/javascript" src="./subdir/fileA1.js"&gt;&lt;/script&gt;
+      &lt;script type="text/javascript" src="./file2.js"&gt;&lt;/script&gt;
+      &lt;script type="text/javascript" src="/file3.js"&gt;&lt;/script&gt;</pre>
+                </div>
+                <p style="margin-bottom: 0px;">
+                  The parameter <code>regexOfJsFile</code> is a regex-pattern 
+                  to match a URL of a JS-file (as it pertains to
+                  the above paths). Regex can be involved and deal with complex
+                  patterns. For JscovTestUtil very simple patterns are
+                  recommended, for more involved patterns consult external Java 
+                  regex expertise.
+                </p>
+                <p>
+                  Following are simple positive matches (note: '\' needs to be coded as
+                  '\\' in Java)
+                </p>
+                <div class='indtpp'>
+                  <table class='regextab'>
+                    <caption style='display: none;'>regex to string</caption>
+                    <tr>
+                      <th><i>regex-pattern</i></th>
+                      <th>./subdir/file1.js</th>
+                      <th>./subdir/fileA1.js</th>
+                      <th>./file2.js</th>
+                      <th>/file3.js</th>
+                      <th><i>simple wildcard</i></th>
+                      <th><i>coded as</i></th>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*dir.file.*$</td>
+                      <td>X</td> <td>X</td> <td>-</td> <td>-</td> <td>*dir*file*</td> <td></td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*file.*$</td>
+                      <td>X</td> <td>X</td> <td>X</td> <td>X</td> <td>*file*</td> <td></td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*file.*1.*$</td>
+                      <td>X</td> <td>X</td> <td>-</td> <td>-</td> <td>*file*1*</td> <td></td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*file3.*$</td>
+                      <td>-</td> <td>-</td> <td>-</td> <td>X</td> <td>*file3*</td> <td></td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*file2.*$</td>
+                      <td>-</td> <td>-</td> <td>X</td> <td>-</td> <td>*file2*</td> <td></td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*2.*$</td>
+                      <td>-</td> <td>-</td> <td>X</td> <td>-</td> <td>*2*</td> <td></td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*file3\.js$</td>
+                      <td>-</td> <td>-</td> <td>-</td> <td>X</td> <td>*file3.js</td>
+                      <td>^.*file3\\.js$</td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*subdir.*$</td>
+                      <td>X</td> <td>X</td> <td>-</td> <td>-</td> <td>*subdir*</td> <td></td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*file[32].*$</td>
+                      <td>-</td> <td>-</td> <td>X</td> <td>X</td> <td></td> <td></td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*file[321].*$</td>
+                      <td>X</td> <td>-</td> <td>X</td> <td>X</td> <td></td> <td></td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*file.*[321].*$</td>
+                      <td>X</td> <td>X</td> <td>X</td> <td>X</td> <td></td> <td></td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*file.*[13].*$</td>
+                      <td>X</td> <td>X</td> <td>-</td> <td>X</td> <td></td> <td></td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*file.*[3].*$|^.*file.*[1].*$</td>
+                      <td>X</td> <td>X</td> <td>-</td> <td>X</td> <td>
+                        <span class='smtxt'>regex or condition</span></td> <td></td>
+                    </tr>
+
+                    <tr>
+                      <td><p>
+                          ^.*file.*[A].*$|^.*file.*[3].*$
+                        <p>
+                          ^.*file.*[A].*$|^.*file[3].*$
+                        <p>
+                          ^.*file.*[A].*$|^.*file3.*$</td>
+                      <td>-</td> <td>X</td> <td>-</td> <td>X</td> <td>
+                        <span class='smtxt'>regex or condition</span></td> <td></td>
+                    </tr>
+
+                  </table>
+                </div>
+              </div>
+              <h4>Start/stop code-coverage</h4>
+              <p>
+                At the beginning and end of testing the following methods need to be used.
+                The start and stop are best placed in @BeforeSuite and @AfterSuite 
+                respectively. The store-report may be done anytime (before stop).
+              </p>
+
+              <p>
+                If the setOffCodeCoverage is done before testing, most JscovTestUtil 
+                methods will be ignored and not do anything.
+              </p>
+              <table>
+                <caption style='display: none;'>no name</caption>
+                <tr>
+                  <td>
+                    <ul>
+                      <li><code>new JscovTestUtil(...)</code></li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul>
+                      <li><code>setOnCodeCoverage()</code></li>
+                      <li><code>setOffCodeCoverage()</code></li>
+                    </ul>
+                  </td>
+                  <td><ul>
+                      <li><code>startProxyServer()</code><br> ::</li>
+                      <li><code>storeJscoverReport(..)</code><br> ::</li>
+                      <li><code>stopProxyServer(..)</code><br> ::<br><br></li>
+                      
+                      <li><code>restartProxyServer()</code></li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+              The test-case scripts start, store-report and stop methods may remain
+              in place in the scripts all the time. 
+              Basically, the invokes are just a return if  code-coverage is off.
+
+              <h4>Testing</h4>
+              Testing is carried out in the normal WebDriver manner on a driver
+              object:
+              <pre style="margin-bottom: 2px;">
+     WebDriver driver = new FirefoxDriver();
+
+     // the normal manner of API actions
+     driver.get("http://........);
+     WebElement myTestElement = driver.findElement(........);
+        ::</pre>
+              <p>However, for code-coverage to work a driver needs to be
+                acquired from a JscovTestUtil object (the object provides 
+                the JSCover proxy-server management and provides a 
+                WebDriver to use the proxy).</p>
+              <pre style="margin-bottom: 2px;">
+     JscovTestUtil jscovObj = new JscovTestUtil(3129, "base");
+
+     jscovObj.setOnCodeCoverage();
+     jscovObj.startProxyServer();
+
+     WebDriver jscovDriver 
+         = jscovObj.webDriverForJSCoverProxy(JscovBrowserKind.FIREFOX);
+
+     // the normal manner of API actions
+     jscovDriver.get("http://........);
+     WebElement myTestElement = jscovDriver.findElement(........);
+        ::</pre>
+              <p style="padding-left: 6ch; text-indent:-6ch;">NOTE: getting a new 
+                driver per test-case is not ideal. Consider defining the
+                driver-for-proxy and start and stop in @BeforeSuite or @AfterSuite
+                setup/configuration methods.</p>
+
+              <h4>Test scripts testing template example</h4>
+              The following code/class is a template to help a JscovTestUtil
+              user. It may be copied freely and modified (in fact it will
+              need to be modified by a user to work).
+              <br><br>
+              <button  class="butrad" onclick="dispTempButt(this, 'tempplat');" onfocus="buttFocus(this);">
+                Show template</button>
+              <div id="tempplat" style="display: none; margin-left: 10ch;">
+                <p>
+                  This template uses TestNG as its testing framework.
+                </p>
+                <pre>
+package <i>package-name</i>;
+
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterSuite;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeSuite;
+import org.jtestdb.selenium.jscov.JscovTestUtil;
+import static org.jtestdb.selenium.jscov.JscovBrowserKind.*;
+
+import WebDriverManager......??? users choice
+
+/**
+ * Class that is a template to show use of before-suite and 
+ * after-suite use and interaction with JscovTestUtil.
+ * 
+ * Free to use template.
+ */
+public class JscoverExtendableTestClass {
+  // variable for the JscovTestUtil object
+  // and a WebDriver variable to allow after-suite to clean-up on finish
+  protected static JscovTestUtil jscovObject;
+  protected static WebDriver driver;
+
+  // - - - - - - SUITE - - - - - - - 
+  //
+  @BeforeSuite
+  public void suiteBefore() {
+
+    // prepare the Selenium drivers (as per user's test environment)
+    //
+    // WebDriverManager is an Apache 2.0 licensed Java library that allows
+    // automatic install/update of Selenium V3 WebDrivers and setup. 
+    //
+    WebDriverManager.chromedriver().setup();
+    WebDriverManager.firefoxdriver().setup();
+
+    // prepare for code-coverage
+    jscovObject = new JscovTestUtil(3129, "base");
+
+    if (true) {    <i>?? need to code this appropriately</i>
+      jscovObject.setOnCodeCoverage();
+    } else {
+      jscovObject.setOffCodeCoverage();
+    }
+    jscovObject.setOnViewReport();
+    jscovObject.reportIntoTimeStampDir(3);
+    //
+    jscovObject.startProxyServer();
+  }
+
+  @AfterSuite
+  public void suiteAfter() {
+    jscovObject.stopProxyServer(30);
+    jscovObject.viewReportDo(8080);
+  }
+
+  // - - - - - - CLASS - - - - - - - 
+  //
+  @BeforeClass
+  public void classBefore() {
+    driver = jscovObject.webDriverForJSCoverProxy(FIREFOX);
+  }
+
+  @AfterClass
+  public void classAfter() {
+    jscovObject.storeJscoverReport(30);
+        
+    if (driver != null) {
+      // knock the driver down
+      // driver.close() the test item remains alive for some
+      // reason; so do quit
+      driver.quit();
+      driver = null;
+    }
+  }
+}         
+                </pre>
+              </div>
+
+              <h4>Viewing reports (automatically)</h4>
+              <p>
+                Additional methods provide the ability to have a report viewed at the
+                end of the testing.
+              </p>
+              <table>
+                <caption style='display: none;'>no name</caption>
+                <tr>
+
+                  <td>
+                    <ul>
+                      <li><code>setOnViewReport()</code></li>
+                      <li><code>setOffViewReport()</code></li>
+                    </ul>
+                  </td>
+                  <td><ul>
+                      <li><code>viewReportDo(..)</code></li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+              <h3>View reports (manually)</h3>
+              Viewing the reports manually the user should follow the JSCover  at  
+              <a target="_blank" href="https://tntim96.github.io/JSCover">
+                https://tntim96.github.io/JSCover</a>. (Search for 'jscover.server.SimpleWebServer'.)
+              <p>
+                Hint:
+                <br>&gt;cd &lt;<i>JSCover directory</i>&gt;
+                <br>
+                &gt;<code>java -cp target/dist/JSCover-all.jar jscover.server.SimpleWebServer . 8080</code>          
+              </p>
+              <p>Launch a browser with URL 'http://localhost:8080' and follow the sub-directories
+                to the location of the 'reports' directory.</p>
+            </div>
+            <p>Copyright (c) 2019 dbradley.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
