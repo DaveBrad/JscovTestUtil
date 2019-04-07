@@ -1,5 +1,5 @@
 # java-Jscover-test-util
-Java Selenium 3 javascript code coverage utility using JSCover
+Java Selenium 3 class for javascript code coverage utility using JSCover
 
 [JscovTestUtil basic documentation](https://DaveBrad.github.io/prjdoc/jscovtestutil/jtuhow.html)
 
@@ -8,14 +8,13 @@ JSCover primer: JSCover is used as an external program which uses a local proxy 
 A proxy process will instrument the javascript files as they are provided to the browser.
 
 This is very useful class to test IoT device(s) that support a simple web-server capability (such as an ESP8266). JSCover may be used
-for any web-server, but be aware that it has limitation.
+for any web-server, but be aware that it has limitations.
 
 JSCover provides the ability to launch a browser to view reports of the Javascript files code coverage.
 
 ![Alt image](./interact.png)
 
 (Letters a, b, c and d are represented by i, ii, iii and iv in the below text.)
-
 
 <ol>
 <li><i>Test setup</i>:
@@ -68,3 +67,10 @@ proxy-server process on the system.
 </li></ul></li>
 </ol>
 
+Why Netbeans project?
+
+JscovTestUtil interacts with external programs: a-browser, JSCover proxy-server,
+and a pseudo web-server. Testing once through all these interactions involves
+integration tests, rather than unit tests.
+
+TestNG is used to cause tests to be run sequentially.
