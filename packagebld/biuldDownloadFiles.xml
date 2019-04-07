@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="changeme" default="build-jar-jdoc" basedir=".">
+    <target name="build-jar-jdoc" depends="initProp,get-clz-path,versionControl">
+       
+        <!--clean the temp dir for this action and re-create -->
+        <property name="tmpbld.dir" location="./tmpbld" />
+        <delete dir="${tmpbld.dir}" />
+        <mkdir dir="${tmpbld.dir}" />
+
+        <!--build the classes and create the jar-->
+        <property name="tmpbld.clzs.dir" location="${tmpbld.dir}/clzs" />
+        <mkdir dir="${tmpbld.clzs.dir}" />
+        <property name="tmpbld.deploy" location="${tmpbld.dir}/deploy" />
+        <mkdir dir="${tmpbld.deploy}" />
+        
+        <antcall target="bldClasses" inheritAll="true" />
+       
+        
+        <!--build and create the javadoc and jdoc zip-->
+        <property name="tmpbld.jdoc.dir" location="${tmpbld.dir}/jdoc" />
+        <mkdir dir="${tmpbld.jdoc.dir}" />
+        
+        <antcall target="createJavadoc" inheritAll="true" />
+        
+        
+        
+            <!-- 
+            copy the temp deploy to the download folder
+        -->
+        
+        <copy todir="${prj.dir}/_download">
+           <fileset dir="${tmpbld.deploy}">
+                <include name="jscovtestutil.*"/>
+           </fileset>
+        </copy>
+       
+    </target>
+    
+    <target name="initProp">
+        <property name="prj.dir" location=".." />
+        <property name="src.dir" value="${prj.dir}/src" />
+        <property name="prj.properties.file" value="${prj.dir}/nbproject/project.properties" />
+        <echo message="${basedir}"> </echo>
+    </target>
+    
+    <target name="get-clz-path">
+        <!--       
+             load the project properties file to get information about the projects
+             dependencies for building
+        -->
+        <loadproperties srcFile="${prj.properties.file}" />
+        <echo message="${javac.classpath}"> </echo>
+        
+        <!--convert the javac.classpath to be a string path for 
+           + the javac
+           + determining change in version due to different dependencies
+        -->
+        <script language="javascript">
+            var javacPathIn = project.getProperty("javac.classpath");
+            
+            // is stored in a certain format relative to the project dir
+            // need to split ':' and then change to relative patterns
+            // with concatenated with separator ';' for ant javac use
+            
+            var pathInArr =  javacPathIn.split("\:");
+            pathInArr.sort();
+            
+            var javacPathOut = "";
+            var i;
+            for(i = 0; i &lt; pathInArr.length; i++){
+               javacPathOut = javacPathOut + '../' + pathInArr[i] + ';';
+            }
+            project.setProperty("all.classpath", javacPathOut);
+        </script>
+
+        <echo message=" "> </echo>
+        <echo message="xxxxx ${all.classpath}"> </echo>
+        
+    </target>
+    
+    <target name="versionControl">
+        <tstamp>
+            <format property="DSTAMP" pattern="yyMMdd"/>
+            <format property="TSTAMP" pattern="HHmmss"/>
+            <format property="yy" pattern="yy" />
+        </tstamp>
+        
+        <!-- 
+           the version for the jar and jdoc files will use a version number from a 
+           file and be prefixed by the 2 digit year
+        -->
+        <available file="${basedir}/version.properties" property="versionPropFnd" />
+        
+        <fail unless="versionPropFnd" message="ERROR:
+                    ${line.separator}  **** No version.properties file found" />
+        
+        <loadproperties srcFile="${basedir}/version.properties" />
+        <echo message="${version}"> </echo>
+        
+        <!--        
+        need to process the version number to determine if project changes have
+        taken place that warrant a change in the version number
+        -->
+        
+        <script language="javascript">
+            var allClzPath = project.getProperty("all.classpath");
+            // the 
+            var versionNum = project.getProperty("version");
+            
+            var versionNClzPath = "version" + versionNum + "ClzPath";
+            var versionClzPath = project.getProperty(versionNClzPath);
+
+            if(versionClzPath == null){
+               // version number has been updated manually and thus will
+               // will require the class path info to be present for the 
+               // next deploy
+               //
+               // project.setProperty("versionUpdate", "true");
+               // not to be updated as an inital version number
+               
+               project.setProperty("versionClzPathUpdate", "true");
+               versionClzPath = allClzPath;
+            }else{
+               if(allClzPath !== versionClzPath){
+                  project.setProperty("versionUpdate", "true");
+                  project.setProperty("versionClzPathUpdate", "true");
+            
+                  var versionNumInt = parseInt(versionNum);
+                  versionNumInt++;
+                  versionNum = "" + versionNumInt;
+            
+                  versionClzPath = allClzPath;
+               }
+            }
+            // 
+            project.setProperty("versionNum", versionNum);
+            project.setProperty("versionClzPath", versionClzPath);
+           
+        </script>
+        
+        <antcall target="updateVersionFile" />
+        <antcall target="updateVersionClzPathFile" />
+        
+    
+    </target>
+    
+    <target name="updateVersionFile" if="versionUpdate">
+        
+        <echo file="${basedir}/version.properties" append="true">
+version=${versionNum}</echo>
+        
+    </target>
+    
+       <target name="updateVersionClzPathFile" if="versionClzPathUpdate">
+        
+        <echo file="${basedir}/version.properties" append="true">
+version${versionNum}ClzPath=${versionClzPath}</echo>
+        
+    </target>
+    
+    <target name="bldClasses">
+        <path id="master-classpath">
+            <fileset dir="${prj.dir}/depends/selenjava">
+                <include name="**.jar"/>
+            </fileset>
+        </path>
+
+        <javac destdir="${tmpbld.clzs.dir}"   srcdir="${src.dir}" 
+               debug="false" includeantruntime="true" 
+               classpath= "${all.classpath}"> 
+        </javac>
+        
+        <antcall target="createJAR" inheritAll="true" />
+    </target>
+    
+    <target name="createJAR">
+        <!-- create the jar file from its classes in the bin-src directory
+        and include the License file in the top level of the JAR file
+        -->
+        <jar jarfile="${tmpbld.deploy}/jscovtestutil.${yy}.${versionNum}.jar" duplicate="preserve"> 
+            <fileset dir="${tmpbld.clzs.dir}"
+                     includes="**/*.class"
+            />
+        </jar> 
+    </target>
+    
+    <target name="createJavadoc">
+        <javadoc sourcepath="${src.dir}"
+                 destdir="${tmpbld.jdoc.dir}"
+
+                 packagenames="org.jtestdb.*"
+                 classpath= "${all.classpath}"
+                 
+                 defaultexcludes="yes"
+                 
+                 noqualifier="java.*:org.openqa.*"
+
+                 additionalparam="--allow-script-in-comments"
+                 Public="true"
+                 stylesheetfile="${src.dir}/org/jtestdb/selenium/jscov/doc-files/suppmnt.css"
+                 author="true"
+                 version="true"
+                 use="true"
+                 windowtitle="JscovTestUtil javadoc">
+            <bottom><![CDATA[<i>Copyright &#169; 2019 dbradley. All Rights Reserved.</i>]]></bottom>
+        </javadoc>
+        
+        <antcall target="createJDocZip" inheritall="true" />
+    </target>
+    
+    <target name="createJDocZip">
+        <zip basedir="${tmpbld.jdoc.dir}"
+             destfile="${tmpbld.deploy}/jscovtestutil.${yy}.${versionNum}_jdoc.zip"
+             duplicate="preserve"
+        /> 
+    </target>
+    
+</project>
