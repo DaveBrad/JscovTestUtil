@@ -1,4 +1,4 @@
-# java-Jscover-test-util
+# JscovTestUtil
 Java Selenium 3 class for javascript code coverage utility using JSCover
 
 [JscovTestUtil basic documentation](https://DaveBrad.github.io/prjdoc/jscovtestutil/jtuhow.html)
