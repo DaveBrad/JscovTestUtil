@@ -1,0 +1,351 @@
+<project name="JSCover" basedir="." default="pre-commit">
+
+	<property environment="env" />
+
+	<property file="build.properties" />
+	<property file="src/main/resources/jscover/configuration.properties" />
+
+    <!-- Initialize Maven task. Allows Java dependencies to be managed in pom.xml -->
+    <target name="mvn-init" unless="compile.classpath" xmlns:artifact="urn:maven-artifact-ant">
+        <typedef resource="org/apache/maven/artifact/ant/antlib.xml" uri="urn:maven-artifact-ant"
+                 classpath="lib/maven-ant-tasks-2.1.3.jar"/>
+        <condition property="maven.repo.local" value="${maven.repo.local}" else="${user.home}/.m2/repository">
+            <isset property="maven.repo.local"/>
+        </condition>
+        <echo>maven.repo.local=${maven.repo.local}</echo>
+        <artifact:localRepository id="local.repository" path="${maven.repo.local}"/>
+        <artifact:pom file="pom.xml" id="maven.project"/>
+        <artifact:dependencies pathId="compile.classpath" filesetId="compile.fileset" useScope="compile">
+            <pom refid="maven.project"/>
+            <localRepository refid="local.repository"/>
+        </artifact:dependencies>
+        <artifact:dependencies pathId="test.classpath" filesetId="test.fileset" useScope="test">
+            <pom refid="maven.project"/>
+            <localRepository refid="local.repository"/>
+        </artifact:dependencies>
+        <artifact:dependencies pathId="runtime.classpath" filesetId="runtime.fileset" useScope="runtime">
+            <pom refid="maven.project"/>
+            <localRepository refid="local.repository"/>
+        </artifact:dependencies>
+        <taskdef classpathref="test.classpath" resource="tasks.properties" />
+        <taskdef uri="antlib:org.jacoco.ant" resource="org/jacoco/ant/antlib.xml">
+            <classpath path="${org.jacoco:org.jacoco.ant:jar}"/>
+            <classpath path="${org.jacoco:org.jacoco.core:jar}"/>
+            <classpath path="${org.jacoco:org.jacoco.agent:jar}"/>
+            <classpath path="${org.jacoco:org.jacoco.report:jar}"/>
+            <classpath path="${org.ow2.asm:asm:jar}"/>
+            <classpath path="${org.ow2.asm:asm-commons:jar}"/>
+            <classpath path="${org.ow2.asm:asm-tree:jar}"/>
+        </taskdef>
+    </target>
+
+    <import file="build-maven.xml"/>
+
+	<path id="classpath-main">
+		<pathelement path="${classes.main.dir}" />
+	</path>
+
+	<path id="classpath-test">
+		<pathelement path="${classes.main.dir}" />
+		<pathelement path="${classes.test-unit.dir}" />
+		<pathelement path="${classes.test-integration.dir}" />
+		<pathelement path="${classes.test-acceptance.dir}" />
+	</path>
+
+	<target name="clean">
+		<delete dir="target" />
+		<delete dir=".">
+            <include name="jacoco-*.exec"/>
+            <include name="jscover.log*"/>
+        </delete>
+	</target>
+
+	<target name="init" depends="mvn-init"/>
+
+	<target name="dirsetup">
+		<mkdir dir="${build.dir}" />
+		<mkdir dir="${build.dir}/reports" />
+		<mkdir dir="${dist.dir}" />
+		<mkdir dir="${report.test.dir}" />
+		<mkdir dir="${report.spec.dir}" />
+		<mkdir dir="${report.checkstyle.dir}" />
+		<mkdir dir="${report.coverage.dir}" />
+		<mkdir dir="${report.coverage.all.dir}" />
+		<mkdir dir="${report.jscoverage.dir}" />
+		<mkdir dir="${classes.main.dir}" />
+		<mkdir dir="${classes.test-unit.dir}" />
+		<mkdir dir="${classes.test-integration.dir}" />
+		<mkdir dir="${classes.test-acceptance.dir}" />
+	</target>
+
+	<target name="compile" depends="init, dirsetup">
+		<javac includeantruntime="false" debug="true" srcdir="${src.main.dir}" destdir="${classes.main.dir}"
+               classpathref="compile.classpath" source="1.8" target="1.8"/>
+		<copy todir="${classes.main.dir}" includeemptydirs="no">
+			<fileset dir="${src.resources.dir}" />
+		</copy>
+	</target>
+
+    <target name="stop-server">
+        <get src="http://localhost:8080/stop" dest="${build.dir}/stop.txt" verbose="true"/>
+	</target>
+
+    <target name="jar" depends="compile">
+        <copy file="${com.google.javascript:closure-compiler:jar}" tofile="${dist.dir}/closure-compiler.jar"/>
+        <jar jarfile="${dist.dir}/${ant.project.name}.jar" basedir="${classes.main.dir}" compress="true">
+            <manifest>
+                <attribute name="Implementation-Title" value="${ant.project.name}"/>
+                <attribute name="Implementation-Version" value="${version}"/>
+                <attribute name="Main-Class" value="jscover.Main"/>
+                <attribute name="Class-Path" value="closure-compiler.jar"/><!--Add required JARs here-->
+            </manifest>
+        </jar>
+    </target>
+
+    <target name="jar-all" depends="compile-acceptance-tests">
+        <property name="tmpDir" value="${build.dir}/tmp"/>
+        <mkdir dir="${tmpDir}"/>
+        <unzip src="${com.google.javascript:closure-compiler:jar}" dest="${tmpDir}"/>
+        <copy todir="${tmpDir}" includeemptydirs="no">
+            <fileset dir="${classes.main.dir}" />
+        </copy>
+        <jar jarfile="${dist.dir}/${ant.project.name}-all.jar" basedir="${tmpDir}" compress="true">
+            <manifest>
+                <attribute name="Implementation-Title" value="${ant.project.name}"/>
+                <attribute name="Implementation-Version" value="${version}"/>
+                <attribute name="Main-Class" value="jscover.Main"/>
+            </manifest>
+        </jar>
+        <junit haltonfailure="yes" haltonerror="yes" failureProperty="test.failure" errorproperty="test.failure">
+            <classpath>
+                <path refid="classpath-test" />
+                <path refid="compile.classpath" />
+                <path refid="test.classpath" />
+            </classpath>
+            <formatter type="xml" />
+            <formatter type="brief" usefile="no" />
+            <batchtest fork="yes" todir="${report.test.dir}">
+                <fileset dir="${classes.test-acceptance.dir}">
+                    <include name="**/ClassVersionChecker.class" />
+                </fileset>
+            </batchtest>
+        </junit>
+        <antcall target="report-if-failed"/>
+        <fail if="test.failure"/>
+    </target>
+
+    <target name="mvn-install-local" depends="jar-all">
+        <copy file="${dist.dir}/${ant.project.name}-all.jar" tofile="${maven.repo.local}/com/github/tntim96/JSCover/${version}/JSCover-${version}.jar"/>
+    </target>
+
+    <target name="zip">
+        <zip destfile="${dist.dir}/${ant.project.name}-${version}.zip">
+            <fileset dir="${basedir}">
+                <include name="History.md"/>
+                <include name="*.md"/>
+                <include name="build.*"/>
+                <include name="config/**"/>
+                <include name="data/**"/>
+                <include name="doc/**"/>
+                <include name="examples/**"/>
+                <include name="lib/**"/>
+                <include name="log.properties"/>
+                <include name="pom.xml"/>
+                <include name="src/**"/>
+                <include name="${dist.dir}/*.jar"/>
+            </fileset>
+        </zip>
+    </target>
+
+    <target name="release" depends="pre-commit, jar-test, jar-all-test, zip" description="Build sourceforge release binary"/>
+
+	<target name="coverage-report" depends="init" xmlns:jacoco="antlib:org.jacoco.ant">
+        <jacoco:report>
+            <executiondata>
+                <file file="jacoco-integration.exec"/>
+            </executiondata>
+            <structure name="JSCover - Integration">
+                <classfiles>
+                    <fileset dir="${classes.main.dir}">
+                        <exclude name="jscover/ExitHelper.class" />
+                        <exclude name="**/SimpleWebServer.class" />
+                    </fileset>
+                </classfiles>
+                <sourcefiles encoding="UTF-8">
+                    <fileset dir="${src.main.dir}"/>
+                </sourcefiles>
+            </structure>
+            <html destdir="${report.coverage.dir}"/>
+            <xml destfile="${report.coverage.dir}/cobertura.xml"/>
+            <check>
+                <rule element="BUNDLE">
+                    <limit counter="LINE" value="COVEREDRATIO" minimum="0.92"/>
+                    <limit counter="BRANCH" value="COVEREDRATIO" minimum="0.93"/>
+                </rule>
+            </check>
+        </jacoco:report>
+    </target>
+
+	<target name="coverage-report-all" depends="init" xmlns:jacoco="antlib:org.jacoco.ant">
+        <jacoco:merge destfile="jacoco-merged.exec">
+            <fileset dir=".">
+                <include name="jacoco-integration.exec"/>
+                <include name="jacoco-acceptance.exec"/>
+            </fileset>
+        </jacoco:merge>
+        <jacoco:report>
+            <executiondata>
+                <file file="jacoco-merged.exec"/>
+            </executiondata>
+            <structure name="JSCover - All">
+                <classfiles>
+                    <fileset dir="${classes.main.dir}">
+                        <exclude name="jscover/ExitHelper.class" />
+                        <exclude name="**/SimpleWebServer.class" />
+                    </fileset>
+                </classfiles>
+                <sourcefiles encoding="UTF-8">
+                    <fileset dir="${src.main.dir}"/>
+                </sourcefiles>
+            </structure>
+            <html destdir="${report.coverage.all.dir}"/>
+            <xml destfile="${report.coverage.all.dir}/coverage.xml"/>
+            <check>
+                <rule element="BUNDLE">
+                    <limit counter="LINE" value="COVEREDRATIO" minimum="0.97"/>
+                    <limit counter="BRANCH" value="COVEREDRATIO" minimum="0.95"/>
+                </rule>
+            </check>
+        </jacoco:report>
+	</target>
+
+	<target name="compile-tests" depends="compile">
+        <javac includeantruntime="false" debug="true" srcdir="${src.test-unit.dir}"
+			destdir="${classes.test-unit.dir}" source="1.8" target="1.8" encoding="UTF-8">
+            <classpath>
+                <path refid="classpath-main" />
+                <path refid="compile.classpath" />
+                <path refid="test.classpath" />
+            </classpath>
+        </javac>
+		<copy todir="${classes.test-unit.dir}" includeemptydirs="no">
+			<fileset dir="${src.test-resources.dir}" />
+		</copy>
+	</target>
+
+	<target name="compile-integration-tests" depends="compile-tests">
+		<javac includeantruntime="false" debug="true" srcdir="${src.test-integration.dir}"
+			destdir="${classes.test-integration.dir}" source="1.8" target="1.8">
+            <classpath>
+                <path refid="classpath-test" />
+                <path refid="compile.classpath" />
+                <path refid="test.classpath" />
+            </classpath>
+        </javac>
+		<copy todir="${classes.test-integration.dir}" includeemptydirs="no">
+			<fileset dir="${src.test-integration.resources.dir}" />
+		</copy>
+	</target>
+
+	<target name="compile-acceptance-tests" depends="compile-integration-tests">
+		<javac includeantruntime="false" debug="true" srcdir="${src.test-acceptance.dir}"
+			destdir="${classes.test-acceptance.dir}" source="1.8" target="1.8">
+            <classpath>
+                <path refid="classpath-test" />
+                <path refid="compile.classpath" />
+                <path refid="test.classpath" />
+            </classpath>
+        </javac>
+		<copy todir="${classes.test-acceptance.dir}" includeemptydirs="no">
+			<fileset dir="${src.test-acceptance.resources.dir}" />
+		</copy>
+	</target>
+
+	<target name="run-tests" depends="compile-integration-tests" xmlns:jacoco="antlib:org.jacoco.ant">
+		<property name="tests" value="*Test" />
+		<delete dir="${report.test.dir}" />
+		<mkdir dir="${report.test.dir}" />
+        <jacoco:coverage destfile="jacoco-integration.exec" includes="jscover.*" excludes="*.ExitHelper:*.*Test">
+            <junit fork="true" forkmode="perBatch" haltonfailure="no" haltonerror="no" failureProperty="test.failure" errorproperty="test.failure">
+                <jvmarg value="-ea"/>
+                <classpath>
+                    <path refid="classpath-test" />
+                    <path refid="compile.classpath" />
+                    <path refid="test.classpath" />
+                </classpath>
+                <formatter type="xml" />
+                <formatter type="brief" usefile="no" />
+                <batchtest fork="yes" todir="${report.test.dir}">
+                    <fileset dir="${classes.test-unit.dir}">
+                        <include name="**/${tests}.class" />
+                    </fileset>
+                    <fileset dir="${classes.test-integration.dir}">
+                        <include name="**/${tests}.class" />
+                    </fileset>
+                </batchtest>
+            </junit>
+        </jacoco:coverage>
+        <antcall target="report-if-failed"/>
+		<fail if="test.failure"/>
+	</target>
+
+    <target name="run-acceptance-tests" depends="compile-acceptance-tests" xmlns:jacoco="antlib:org.jacoco.ant">
+        <property name="tests" value="*Test" />
+        <jacoco:coverage destfile="jacoco-acceptance.exec" includes="jscover.*" excludes="*.ExitHelper:*.*Test">
+            <junit fork="true" forkmode="perTest" haltonfailure="no" haltonerror="no" failureProperty="test.failure" errorproperty="test.failure">
+                <jvmarg value="-ea"/>
+                <classpath>
+                    <path refid="classpath-test" />
+                    <path refid="compile.classpath" />
+                    <path refid="test.classpath" />
+                </classpath>
+                <formatter type="xml" />
+                <formatter type="brief" usefile="no" />
+                <batchtest fork="yes" todir="${report.test.dir}">
+                    <fileset dir="${classes.test-acceptance.dir}">
+                        <include name="**/${tests}.class" />
+                    </fileset>
+                </batchtest>
+            </junit>
+        </jacoco:coverage>
+        <antcall target="report-if-failed"/>
+        <fail if="test.failure"/>
+    </target>
+
+    <target name="jar-test" depends="jar">
+        <java jar="${dist.dir}/${ant.project.name}.jar" fork="true" spawn="true">
+            <arg line="-ws --port=9080"/>
+        </java>
+        <waitfor maxwait="5" maxwaitunit="second" checkevery="100" checkeveryunit="millisecond" timeoutproperty="failed">
+            <http url="http://localhost:9080/jscoverage.html"/>
+        </waitfor>
+        <get maxtime="2" src="http://localhost:9080/stop" dest="${build.dir}/stop.txt"/>
+    </target>
+
+    <target name="jar-all-test" depends="jar-all">
+        <java jar="${dist.dir}/${ant.project.name}-all.jar" fork="true" spawn="true">
+            <arg line="-ws --port=9080"/>
+        </java>
+        <waitfor maxwait="5" maxwaitunit="second" checkevery="100" checkeveryunit="millisecond" timeoutproperty="failed">
+            <http url="http://localhost:9080/jscoverage.html"/>
+        </waitfor>
+        <get maxtime="2" src="http://localhost:9080/stop" dest="${build.dir}/stop.txt"/>
+    </target>
+
+    <target name="report-if-failed" if="test.failure">
+        <antcall target="junit-report"/>
+	</target>
+
+    <target name="junit-report">
+		<junitreport todir="${report.test.dir}">
+			<fileset dir="${report.test.dir}">
+				<include name="TEST-*.xml" />
+			</fileset>
+			<report format="frames" todir="${report.test.dir}" />
+		</junitreport>
+	</target>
+
+	<target name="junit" depends="run-tests, coverage-report"/>
+
+	<target name="pre-commit" depends="clean, junit, run-acceptance-tests, junit-report, coverage-report-all" description="Run this before committing"/>
+</project>

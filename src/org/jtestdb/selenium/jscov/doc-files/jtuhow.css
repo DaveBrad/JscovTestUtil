@@ -1,0 +1,148 @@
+/* Copyright (c) 2019 dbradley. */
+
+.martpbt{
+    margin-bottom: 3px;
+    margin-top: 0px;
+}
+.indtpp{
+    margin-left: 30px;
+}
+.indtpp pre{
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+.regextab td{
+    text-align: center;
+    vertical-align: top;
+}
+.regextab td,
+.regextab th{
+    border: 1px solid; 
+    width: auto;
+}
+
+.regextab td:nth-child(1),
+.regextab td:nth-child(n+6){
+    text-align: left;
+    padding-left: 15px;
+    padding-right: 15px;
+}
+.regextab td:nth-child(n+2):nth-child(n-6){
+    vertical-align: middle;
+}
+.regextab td:nth-child(1) p{
+    margin-bottom: 2px;
+    margin-top: 2px;
+}
+
+.smtxt{
+    font-size: 0.6em;
+}
+.warnopts{
+    /*color: red;*/
+    font-size: 0.6em;
+}
+.warnopts span{color: red;}
+
+.opttabexin td{
+   padding-left: 3ch;
+   padding-right: 3ch;
+   border-top: 1px solid;
+   border-right: 1px solid;
+}
+
+.opttabexin td:last-child{
+     border-right: 0px;
+}
+
+body {font-size: 14px;
+      font-family: 'DejaVu Sans', Arial, Helvetica, sans-serif;
+      overflow-x: hidden;
+      overflow-y:hidden;
+}
+h4, h5, h6 {margin-bottom: 3px;}
+h4, h5{margin-top: 8px;}
+h6 {font-size: 10pt; margin-top: 15px; margin-bottom: 5px;}
+
+.margtop0 {margin-top: 0px;}
+.margbot3 {margin-bottom: 3px;}
+
+.ind{margin-left: 15px;}
+
+.list p:nth-child(1){
+    margin-bottom: 3px; 
+    padding-left: 5ch; 
+    text-indent: -5ch;}
+.list p:nth-child(n+2){ 
+    margin-top: 0px; 
+    margin-bottom: 3px; 
+    padding-left: 5ch; 
+    text-indent: -5ch;}
+
+.tabstruct td{vertical-align: top; width: 50%;}
+.tabstruct td pre{margin-top: 0px;}
+.tabstruct tr:nth-child(2) td:nth-child(1){text-align: center;}
+.tabusrdir td:nth-child(1){width: 15%;}
+.tabusrdir td:nth-child(2) div img{
+    border: 1px solid;
+    text-align: center;
+}
+.tabusrdir td div pre{
+    display: inline-block; 
+    text-align: left;}
+
+.methods p {margin-bottom: 0px;}
+.methods ul {margin-top: 0px;}
+
+.caplist ul li{ margin-bottom: 8px;}
+.caplist ul ul li,
+.caplist ul ol li{
+    margin-bottom: 0px;
+    margin-top: 0px;
+}
+.ideecttab td{width: 400px;
+              text-align: center;}
+.butrad{background: #ffd3ff; 
+        border-radius: 10px; 
+        font-style: italic; 
+        font-size: 9pt;}
+
+.tabdiv{display:table;}
+
+.rowdiv{
+    display: table-row;
+}
+.celldivleft{
+    display:table-cell;
+    height: 100%;
+    width: 15%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+.celldivright{
+    display:table-cell;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 16%;
+    width: 84%;
+    overflow-y: hidden;
+    overflow-x: hidden;
+}
+.divscrollleft{
+    height:100%;
+    width: 100%;
+    overflow-y: scroll;    
+    overflow-x: hidden;
+    margin-left: 4px;
+}
+.divscrollright{
+    height:100%;
+    width: 100%;
+    /*margin-left: 224px;*/
+    overflow-y: scroll;
+    overflow-x: scroll;
+}
