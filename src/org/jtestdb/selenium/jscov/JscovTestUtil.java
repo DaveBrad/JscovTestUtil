@@ -64,6 +64,9 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import static org.jtestdb.selenium.jscov.JscovTestUtil.ProcessingState.*;
 
 /**
+ * 
+ *
+ * 
  * Class that is designed to interact with JSCover (a Javascript code-coverage
  * tool) while executing test-case scripts within a Selenium v3 environment.
  * JscovTestUtil class&rsquo; purpose is to provided methods that facilitate
@@ -218,8 +221,6 @@ import static org.jtestdb.selenium.jscov.JscovTestUtil.ProcessingState.*;
  * </table>
  *
  * <p id="summtop">Top of summaries</p>
- *
- * @author dbradley
  */
 public class JscovTestUtil {
 
@@ -1598,9 +1599,9 @@ public class JscovTestUtil {
         // wait on the DOM being updated with the 'stopEleId' element for
         // the specified time
         //
-        (new WebDriverWait(jscoverDriverWithProxySet, timerForJscoverReport2Complete))
-                .until(ExpectedConditions
-                        .presenceOfElementLocated(By.id(STOPELEID_STR)));
+//        (new WebDriverWait(jscoverDriverWithProxySet, timerForJscoverReport2Complete))
+//                .until(ExpectedConditions
+//                        .presenceOfElementLocated(By.id(STOPELEID_STR)));
     }
 
     /**
